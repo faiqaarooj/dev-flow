@@ -136,7 +136,7 @@ function Overview() {
   useEffect(() => {
     let active = true
     api.listScans()
-      .then((data) => { if (active && Array.isArray(data)) setHistory(data) })
+      .then((data: any) => { if (active && Array.isArray(data)) setHistory(data) })
       .catch(() => {})
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
@@ -601,7 +601,7 @@ function HistoryView() {
   useEffect(() => {
     let active = true
     api.listScans()
-      .then((data) => { if (active && Array.isArray(data)) setHistory(data) })
+      .then((data: any) => { if (active && Array.isArray(data)) setHistory(data) })
       .catch(() => {})
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
