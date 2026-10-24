@@ -1,0 +1,10 @@
+{
+  "description": "Helps developers audit public GitHub repositories for security risks, review prioritized findings, and verify proposed fixes with re-scans.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

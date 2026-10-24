@@ -1,0 +1,69 @@
+# ==========================================
+# DevFlow AI — Root Git Ignore
+# ==========================================
+
+# Operating System & IDE
+.DS_Store
+*/.DS_Store
+*.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python & Virtual Environments
+.venv/
+*/.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node.js & Frontend Builds
+node_modules/
+*/node_modules/
+dist/
+*/dist/
+build/
+.cache/
+.vite/
+*.tsbuildinfo
+*-debug.log*
+*.log
+logs/
+
+# SQLite & Local Databases
+*.db
+*.sqlite
+*.sqlite3
+backend/devflow.db
+backend/app/devflow.db
+devflow.db
+
+# Secrets & Local Environment Configs
+.env
+*.env
+.env.*
+!.env.example
+*/.env
+*/.env.*
+!*/.env.example
+backend/.env
+frontend/.env.local
+
+# Temporary archives & legacy directories
+*.zip
+Repository Security Dashboard.zip
+Repository Security Dashboard/
+DevFlow/
+.claude-replay.*
+.tmp-*
+/.figma/design-context/
