@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import sqlite3
+import os
 from pathlib import Path
 
 from app.config import settings
 
 
-DB_PATH = Path(settings.database_path)
-if not DB_PATH.is_absolute():
-    DB_PATH = (Path(__file__).resolve().parent.parent.parent / settings.database_path).resolve()
+if os.environ.get("VERCEL"):
+    DB_PATH = Path("/tmp/devflow.db")
+else:
+    DB_PATH = Path(settings.database_path)
+    if not DB_PATH.is_absolute():
+        DB_PATH = (Path(__file__).resolve().parent.parent.parent / settings.database_path).resolve()
 
 
 def get_connection() -> sqlite3.Connection:

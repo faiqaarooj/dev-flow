@@ -64,7 +64,7 @@ function Shell() {
             <CircleDot size={14} className={apiHealth === 'connected' ? 'text-[var(--success)]' : 'text-[var(--danger)]'} />
             {apiHealth === 'connected' ? 'Backend connected' : (apiHealth === 'checking' ? 'Connecting...' : 'Backend offline')}
           </div>
-          <div className="mt-1 truncate text-[11px] text-[var(--muted)]">{api.baseUrl}</div>
+          <div className="mt-1 truncate text-[11px] text-[var(--muted)]">{api.baseUrl || 'Same-origin (/api)'}</div>
         </div>
       </aside>
       <div className="lg:pl-64">
