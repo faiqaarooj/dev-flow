@@ -8,6 +8,7 @@ import {
 import { createBrowserRouter, Link, NavLink, Outlet, useNavigate, useParams } from 'react-router'
 import { api } from '../services/api'
 import { HeroPage } from '../pages/HeroPage'
+import { DevFlowLogo } from '../components/DevFlowLogo'
 
 const nav = [
   ['Landing Page', '/', ShieldCheck],
@@ -45,9 +46,8 @@ function Shell() {
       {mobile && <button aria-label="Close navigation" onClick={() => setMobile(false)} className="fixed inset-0 z-30 bg-black/60 lg:hidden" />}
       <aside className={cx('fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-[var(--border)] bg-[var(--sidebar)] transition-transform lg:translate-x-0', mobile ? 'translate-x-0' : '-translate-x-full')}>
         <div className="flex h-20 items-center gap-3 border-b border-[var(--border)] px-6">
-          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="grid size-8 place-items-center rounded-lg bg-white text-black"><ShieldCheck size={18} /></div>
-            <div><div className="font-semibold tracking-tight">DevFlow AI</div><div className="text-xs text-[var(--muted)]">Security</div></div>
+          <Link to="/" className="flex items-center gap-3 hover:opacity-85 transition-opacity">
+            <DevFlowLogo size="sm" withText={true} />
           </Link>
           <button aria-label="Close navigation" onClick={() => setMobile(false)} className="ml-auto text-[var(--muted)] lg:hidden"><X size={20} /></button>
         </div>

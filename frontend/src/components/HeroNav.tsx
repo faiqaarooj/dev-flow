@@ -1,6 +1,7 @@
 import React from 'react'
-import { ShieldCheck, ArrowUpRight, LayoutDashboard } from 'lucide-react'
+import { ArrowUpRight, LayoutDashboard } from 'lucide-react'
 import { Link } from 'react-router'
+import { DevFlowLogo } from './DevFlowLogo'
 
 interface HeroNavProps {
   onOpenScan: () => void
@@ -10,13 +11,8 @@ export const HeroNav: React.FC<HeroNavProps> = ({ onOpenScan }) => {
   return (
     <header className="w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between z-30 relative">
       {/* Brand Logo */}
-      <Link to="/" className="flex items-center gap-2.5 group">
-        <div className="size-9 rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] flex items-center justify-center text-white shadow-lg shadow-purple-900/30 group-hover:scale-105 transition-transform">
-          <ShieldCheck size={20} />
-        </div>
-        <div className="flex flex-col">
-          <span className="font-bold tracking-tight text-white text-lg">DevFlow <span className="text-[#a78bfa]">AI</span></span>
-        </div>
+      <Link to="/" className="flex items-center group">
+        <DevFlowLogo size="md" withText={true} />
       </Link>
 
       {/* Nav Links */}

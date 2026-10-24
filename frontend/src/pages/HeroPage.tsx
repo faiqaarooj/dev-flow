@@ -6,7 +6,8 @@ import { VulnerabilityAlert } from '../components/VulnerabilityAlert'
 import { SecurityMetrics } from '../components/SecurityMetrics'
 import { FailurePatternsTerminal } from '../components/FailurePatternsTerminal'
 import { ScanModal } from '../components/ScanModal'
-import { ShieldCheck, Heart } from 'lucide-react'
+import { DevFlowLogo } from '../components/DevFlowLogo'
+import { Heart } from 'lucide-react'
 
 export const HeroPage: React.FC = () => {
   const [scanModalOpen, setScanModalOpen] = useState(false)
@@ -63,8 +64,8 @@ export const HeroPage: React.FC = () => {
         {/* Footer */}
         <footer className="border-t border-slate-800/80 bg-slate-950/80 py-8 px-6 text-center text-xs text-slate-500 relative z-20">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <ShieldCheck size={16} className="text-[#a78bfa]" />
+            <div className="flex items-center gap-2.5">
+              <DevFlowLogo size="sm" />
               <span className="font-semibold text-slate-300">DevFlow AI</span>
               <span>— Find the risk. Fix the code. Verify the result.</span>
             </div>
