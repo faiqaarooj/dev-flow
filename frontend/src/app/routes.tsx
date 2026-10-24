@@ -255,6 +255,7 @@ function SeverityBadge({ severity }: any) {
 
 function ScanResults() {
   const { scanId = '' } = useParams()
+  const navigate = useNavigate()
   const [scan, setScan] = useState<any>(null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
@@ -291,7 +292,47 @@ function ScanResults() {
   }
 
   if (scan.status === 'failed') {
-    return <ErrorState message={scan.error_message || 'The security scan encountered an error during repository inspection or static analysis.'} retry={() => window.location.reload()} />
+    return (
+      <>
+        <PageHeading
+          eyebrow={`Scan ${scanId}`}
+          title={scan.repository_name ? `${scan.repository_name}` : 'Repository Security Scan'}
+          description={scan.repository_url || 'Target repository analysis'}
+          action={
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400">
+              <XCircle size={14} /> Scan Incomplete
+            </span>
+          }
+        />
+
+        <div className="mt-6 rounded-2xl border border-red-500/30 bg-[var(--panel)] p-6">
+          <div className="flex items-start gap-4">
+            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-red-500/15 text-red-400">
+              <AlertTriangle size={20} />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-base font-semibold text-white">Repository Inspection Notice</h2>
+              <p className="mt-1 text-sm text-[var(--muted)] leading-relaxed">
+                {scan.error_message || 'The security scan encountered an issue accessing or inspecting the target repository.'}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button onClick={() => navigate('/scans/new')} variant="primary">
+                  Analyze Another Repository <ArrowRight size={15} />
+                </Button>
+                <Button onClick={() => window.location.reload()} variant="secondary">
+                  Refresh Scan
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">Try Another Repository</h3>
+          <RepoForm compact={true} />
+        </div>
+      </>
+    )
   }
 
   const findings = Array.isArray(scan?.findings) ? scan.findings : []
@@ -531,13 +572,23 @@ function FindingDrawer({ finding, scanId, close }: any) {
 }
 
 function ErrorState({ message, retry }: any) {
+  const navigate = useNavigate()
   return (
-    <div className="grid min-h-[60vh] place-items-center text-center">
+    <div className="grid min-h-[60vh] place-items-center text-center p-4">
       <div className="max-w-lg">
-        <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--danger-soft)] text-[var(--danger)]"><XCircle size={23} /></div>
-        <h1 className="mt-4 text-xl font-semibold">We couldn’t load this scan</h1>
+        <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--danger-soft)] text-[var(--danger)]">
+          <XCircle size={23} />
+        </div>
+        <h1 className="mt-4 text-xl font-semibold">Unable to complete scan</h1>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{message}</p>
-        <Button onClick={retry} variant="secondary" className="mt-5">Try again</Button>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Button onClick={() => navigate('/scans/new')} variant="primary">
+            Start a new scan
+          </Button>
+          <Button onClick={retry} variant="secondary">
+            Try again
+          </Button>
+        </div>
       </div>
     </div>
   )

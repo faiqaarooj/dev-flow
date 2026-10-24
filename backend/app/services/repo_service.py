@@ -37,10 +37,24 @@ class RepositoryService:
         self, owner: str, repo: str, target_dir: Path, ref: str | None = None
     ) -> dict[str, Any]:
         repo_url = f"https://github.com/{owner}/{repo}.git"
-        cmd = ["git", "clone", "--depth", "1"]
+        cmd = [
+            "git",
+            "-c", "filter.lfs.smudge=cat",
+            "-c", "filter.lfs.clean=cat",
+            "-c", "filter.lfs.process=",
+            "-c", "filter.lfs.required=false",
+            "clone",
+            "--depth", "1",
+        ]
         if ref and ref not in ("default", "HEAD"):
             cmd.extend(["--branch", ref])
         cmd.extend([repo_url, str(target_dir)])
+
+        env = {
+            **os.environ,
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_ASKPASS": "echo",
+        }
 
         try:
             completed = subprocess.run(
@@ -49,13 +63,21 @@ class RepositoryService:
                 text=True,
                 timeout=45,
                 check=False,
+                env=env,
             )
         except subprocess.TimeoutExpired as exc:
             raise RuntimeError(f"Cloning repository timed out after 45 seconds.") from exc
 
         if completed.returncode != 0:
             error_msg = completed.stderr.strip() or completed.stdout.strip() or "Repository not accessible."
-            if "not found" in error_msg.lower() or "authentication failed" in error_msg.lower():
+            lower_err = error_msg.lower()
+            if (
+                "remote: repository not found" in lower_err
+                or "could not read username" in lower_err
+                or "authentication failed" in lower_err
+                or "fatal: repository" in lower_err
+                or "not found" in lower_err and "git-lfs" not in lower_err
+            ):
                 raise ValueError(f"Repository {owner}/{repo} could not be found or is private.")
             raise RuntimeError(f"Failed to clone repository: {error_msg}")
 
