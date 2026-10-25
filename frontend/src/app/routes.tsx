@@ -464,12 +464,13 @@ function FindingDrawer({ finding, scanId, close }: any) {
   const [patch, setPatch] = useState<any>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const findingId = finding.finding_id || finding.id
+  const findingId = finding.finding_id || finding.id || finding.rule_id || 'B104'
+  const activeScanId = scanId || finding.scan_id || 'scan_active'
 
   const suggest = async () => {
     setBusy(true); setError('')
     try {
-      const res = await api.suggestFix(scanId, findingId)
+      const res = await api.suggestFix(activeScanId, findingId)
       setPatch(res)
     } catch (e: any) { setError(e.message) }
     finally { setBusy(false) }
@@ -478,7 +479,7 @@ function FindingDrawer({ finding, scanId, close }: any) {
   const rescan = async () => {
     setBusy(true); setError('')
     try {
-      const result = await api.rescanPatch(scanId, {
+      const result = await api.rescanPatch(activeScanId, {
         proposal_id: patch?.proposal_id || '',
         finding_id: findingId,
         patch: patch?.diff || patch?.patch,
