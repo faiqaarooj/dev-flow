@@ -1,49 +1,56 @@
 # 01 — Requirements Specification
 
-## 1. Functional requirements
+**Version:** 2.1 — Hardened Production & Deployment Edition  
+**Lead Designer & Engineer:** Faiqa Arooj (Bugfolio, SE-Tech Society, Google Developer Groups)  
+**Target:** DevFlow AI Multi-Agent Security Auditing & Verified Remediation Platform  
 
-| ID | Requirement | Priority | Acceptance criterion |
-|---|---|---:|---|
-| FR-01 | Accept a public GitHub repository URL | P0 | Valid URL creates a scan session; invalid URL receives a useful 4xx response. |
-| FR-02 | Validate repository host, owner, repository, and default/ref selection | P0 | Only supported GitHub URL forms are accepted; arbitrary hosts are rejected. |
-| FR-03 | Retrieve eligible repository files through GitHub API | P0 | Files are bounded by configured count, size, and total bytes. |
-| FR-04 | Report repository coverage | P0 | Response includes included/skipped counts and reasons. |
-| FR-05 | Run Bandit static analysis | P0 | Scanner findings are returned with tool identity and available locations. |
-| FR-06 | Run AI-assisted review | P1 | AI observations are explicitly marked as AI-generated and are not presented as scanner-confirmed. |
-| FR-07 | Normalize and triage findings | P0 | Findings have stable IDs, severity category, rationale, confidence, and source. |
-| FR-08 | Generate a proposed patch for a selected finding | P0 | Output contains target file, explanation, and unified diff or changed content. |
-| FR-09 | Re-scan the proposed change | P0 | The result is based on a new scanner run, not on the model's assertion. |
-| FR-10 | Display verification status | P0 | Status is `resolved`, `still_detected`, or `unverified`, with evidence. |
-| FR-11 | Preserve scan and finding status | P1 | A scan can be fetched by ID after creation. |
-| FR-12 | Handle integration failures | P0 | Failure state and useful message are shown; failure never maps to zero findings. |
-| FR-13 | DNotifier integration | Conditional | Implement only the capability confirmed by official docs and a successful integration test. |
+---
 
-## 2. Non-functional requirements
+## 1. Functional Requirements
 
-- **Security:** never execute source code from a submitted repository.
-- **Read-only:** no write scopes or GitHub modifications in MVP.
-- **Bounded work:** configure timeouts, file-count limits, per-file byte limits, total-byte limits, and model-token limits.
-- **Reliability:** scanner errors and partial coverage are explicit.
-- **Traceability:** each finding records its source (`bandit`, `ai_review`, or normalized combination) and evidence.
-- **Usability:** explanations use plain language while retaining technical details.
-- **Maintainability:** separate API routes, orchestration, scanner adapters, model adapters, and schemas.
-- **Privacy:** do not log API keys or entire source files by default; document what is sent to the AI provider.
+| ID | Requirement | Priority | Acceptance Criterion |
+|---|---|:---:|---|
+| **FR-01** | Accept & Validate Public GitHub Repository URL | P0 | Valid URL (`https://github.com/{owner}/{repo}`) creates scan session; malformed URLs receive 400 Bad Request with `INVALID_REPOSITORY_URL`. |
+| **FR-02** | Dual-Strategy Repository Ingestion | P0 | Primary method streams HTTP archive zipball (`/archive/HEAD.zip`) with streaming Zip-Slip defense (`os.path.commonpath`). Secondary method falls back to shallow Git clone (`git clone --depth 1`) with 25s timeout. |
+| **FR-03** | Bounded Repository Inspection & Coverage | P0 | Max 200 files, max 250 KB per file, max 5 MB total volume. Response records total files, analyzed files, skipped files, and byte counts. |
+| **FR-04** | AST Static Security Analysis (Bandit v1.7.9) | P0 | AST visitor inspection across all Python modules. Findings preserve rule ID (e.g. `B104`, `B108`, `B110`, `B603`), severity, confidence, lines, and code snippets. Subprocesses enforce `shell=False`. |
+| **FR-05** | OWASP Top 10 (2021) & MITRE CWE Mapping | P0 | Every finding maps to an OWASP category (e.g. A01 Broken Access Control, A03 Injection, A05 Security Misconfiguration) and a MITRE CWE (e.g. CWE-200, CWE-377, CWE-390, CWE-78). |
+| **FR-06** | Multi-Engine AI Review & Triage | P0 | Native integration with Google Gemini 2.0 Flash (`google-genai` / REST) and OpenAI GPT-4o-mini (`openai`). Deterministic offline rule-based heuristic triage when AI keys are omitted. |
+| **FR-07** | Automated Remediation Patch Synthesis | P0 | Generates targeted unified diff patches (`.diff`) explaining root cause and resolution. Viewable side-by-side in UI and downloadable via `/api/scans/{scan_id}/fixes/{proposal_id}/download`. |
+| **FR-08** | Isolated Sandbox Re-Scan Verification | P0 | Verifier applies candidate patch in an isolated temporary directory sandbox, re-runs Bandit AST analysis, and confirms status: `resolved`, `still_detected`, or `unverified`. |
+| **FR-09** | Explicit Diagnostic Error Contract (Non-Zero Invariant) | P0 | Failed, partial, or timed-out scans must NEVER return a clean bill of health or 0 findings. They must transition to `status="failed"` with `error_code` and `error_message`. |
+| **FR-10** | Serverless Execution Adaptation (Vercel Support) | P0 | Orchestrator detects serverless runtime (`VERCEL=1`) where background task threads freeze upon HTTP response; executes scan synchronously within platform request limits. |
+| **FR-11** | Publication-Grade Markdown Audit Report Export | P0 | Dynamically generates publication-grade Markdown audit report via `/api/scans/{scan_id}/export/report` with Executive Summary, OWASP/CWE matrices, evidence, and verification logs. |
+| **FR-12** | Direct Project Deliverables Downloads | P0 | Dedicated backend endpoints for PRD (`/api/docs/prd`), System Design (`/api/docs/system-design`), and Benchmark Audit Report (`/api/docs/audit-report`). |
+| **FR-13** | Deterministic Toolchain & Pinned Lockfile | P0 | Pinned `pnpm@9.15.9` across `packageManager` and lockfile version `9.0` with `--frozen-lockfile` to prevent `ERR_PNPM_OUTDATED_LOCKFILE`. |
+| **FR-14** | DNotifier Integration (Capability-Gated) | Conditional | Implemented only where official API endpoints are verified; fallback to internal notification ledger. |
 
-## 3. User stories
+---
 
-- As a developer, I can submit a repository and know what was analyzed.
-- As a developer, I can see a scanner finding's rule, file, line, and evidence where available.
-- As a learner, I can understand the possible impact in plain language.
-- As a developer, I can request a proposed fix and inspect its diff before accepting it.
-- As a developer, I can see whether a fresh scan still detects the issue.
-- As a user, I can tell when the scan was incomplete or failed.
+## 2. Non-Functional Requirements
 
-## 4. Explicit product language
+- **Strict Passive Security:** Never execute, import, or install submitted repository code. Subprocess commands use discrete token lists with `shell=False`.
+- **Zip-Slip & Path Traversal Prevention:** Inspect and canonicalize all archive entries with `os.path.commonpath` checks prior to writing to disk.
+- **Resource Guardrails:** Enforce timeouts (25s cloning, 60s total scan), file size caps (250 KB/file), and total footprint caps (5 MB).
+- **Non-Zero Error Invariant:** Scanner failures and network issues must be surfaced as explicit error states; failures never map to zero findings.
+- **Credential Isolation:** Keep AI API keys and secrets strictly on the server; never expose them to client bundles or browser logs.
+- **Aesthetic Excellence:** Adhere to minimalist, high-contrast dark theme (`#1a1a1a`) with vibrant yellow (`#f4c453`) accents and fluid animations.
 
-Use: “No findings were reported by the configured checks in the analyzed files.”
+---
 
-Do not use: “Your repository is completely secure.”
+## 3. User Stories
 
-Use: “AI-suggested observation; manual review recommended.”
+- **As a Developer:** I can paste a public GitHub URL and receive a publication-grade security audit in under 10 seconds.
+- **As a DevSecOps Engineer:** I can view OWASP Top 10 and MITRE CWE classifications for every finding to satisfy compliance requirements.
+- **As a Junior Engineer:** I can request an automated remediation patch, inspect the code diff, and see proof from a fresh sandbox re-scan that the vulnerability was eliminated.
+- **As an Open-Source Maintainer:** I can download the official PRD, System Design, and Audit Report as clean Markdown files (`.md`) to share with contributors.
+- **As a Deployment Engineer:** I can deploy DevFlow AI to Vercel without encountering PNPM lockfile mismatch errors or serverless background task freezes.
 
-Do not present AI-only claims as confirmed vulnerabilities without supporting evidence.
+---
+
+## 4. Explicit Product Language
+
+- **Use:** "No findings were reported by the configured checks in the 22 analyzed Python files."
+- **Do NOT Use:** "Your repository is completely secure and free of vulnerabilities."
+- **Use:** "AI-suggested observation; manual security review recommended."
+- **Do NOT Use:** "Vulnerability confirmed exploitable by AI." (unless verified by static evidence or deterministic testing).

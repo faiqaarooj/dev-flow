@@ -97,6 +97,7 @@ export const api = {
   },
   downloadPrdUrl: `${API_BASE_URL}/api/docs/prd`,
   downloadSystemDesignUrl: `${API_BASE_URL}/api/docs/system-design`,
+  downloadAuditReportUrl: `${API_BASE_URL}/api/docs/audit-report`,
   getScanReportUrl: (scanId) => `${API_BASE_URL}/api/scans/${encodeURIComponent(scanId)}/export/report`,
   getPatchDownloadUrl: (scanId, proposalId) => `${API_BASE_URL}/api/scans/${encodeURIComponent(scanId)}/fixes/${encodeURIComponent(proposalId)}/download`,
 }

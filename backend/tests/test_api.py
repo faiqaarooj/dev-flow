@@ -127,6 +127,14 @@ class TestAPIRoutes(unittest.TestCase):
         self.assertIn("DevFlow-AI-System-Design.md", response.headers.get("content-disposition", ""))
         self.assertIn("Architecture", response.text)
 
+    def test_download_audit_report_endpoint(self):
+        response = self.client.get("/api/docs/audit-report")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/markdown", response.headers.get("content-type", ""))
+        self.assertIn("DevFlow-AI-Security-Audit-Report.md", response.headers.get("content-disposition", ""))
+        self.assertIn("DevFlow AI — Official Security Audit Report", response.text)
+
 
 if __name__ == "__main__":
     unittest.main()
+

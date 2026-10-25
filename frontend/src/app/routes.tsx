@@ -166,6 +166,13 @@ function Overview() {
         </div>
         <div className="flex flex-wrap gap-2.5">
           <a
+            href={api.downloadAuditReportUrl}
+            download="DevFlow-AI-Security-Audit-Report.md"
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+          >
+            <ShieldCheck size={15} className="text-emerald-400" /> Download Audit Report (.md)
+          </a>
+          <a
             href={api.downloadPrdUrl}
             download="DevFlow-AI-PRD.md"
             className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3.5 py-2 text-xs font-semibold text-white transition hover:border-[var(--accent)] hover:bg-[var(--panel-hover)]"
@@ -687,7 +694,7 @@ function DocsView() {
         title="Documentation & Downloadable Files"
         description="Download PRD files, System Design specifications, and security audit reports."
       />
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-3">
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-6 flex flex-col justify-between">
           <div>
             <div className="size-11 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center text-yellow-400 mb-4">
@@ -695,7 +702,7 @@ function DocsView() {
             </div>
             <h2 className="text-lg font-bold text-white">Product Requirements Document (PRD)</h2>
             <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-              Complete product specifications including multi-agent architecture, functional requirements (FR-01 to FR-09), threat models, and user workflow criteria.
+              Complete product specifications including multi-agent architecture, functional requirements (FR-01 to FR-12), dual ingestion engine, and verification criteria.
             </p>
           </div>
           <div className="mt-6">
@@ -716,7 +723,7 @@ function DocsView() {
             </div>
             <h2 className="text-lg font-bold text-white">System Design & Architecture</h2>
             <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-              Detailed system architecture diagrams, agent component models, database schemas, security boundaries, and API contract specifications.
+              Detailed system architecture diagrams, dual ingestion pipeline, serverless adaptation, ADRs, database schemas, and API contracts.
             </p>
           </div>
           <div className="mt-6">
@@ -726,6 +733,27 @@ function DocsView() {
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--panel-hover)] text-white px-4 py-2.5 text-sm font-semibold transition hover:border-[var(--accent)] w-full"
             >
               <Download size={16} /> Download System Design (.md)
+            </a>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-6 flex flex-col justify-between">
+          <div>
+            <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4">
+              <ShieldCheck size={22} />
+            </div>
+            <h2 className="text-lg font-bold text-white">Security Audit Report</h2>
+            <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
+              Official SAST security audit report for the benchmark repository, OWASP Top 10 & CWE mapping tables, code evidence, and patch verifications.
+            </p>
+          </div>
+          <div className="mt-6">
+            <a
+              href={api.downloadAuditReportUrl}
+              download="DevFlow-AI-Security-Audit-Report.md"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 px-4 py-2.5 text-sm font-semibold transition hover:bg-emerald-500/20 w-full"
+            >
+              <Download size={16} /> Download Audit Report (.md)
             </a>
           </div>
         </div>

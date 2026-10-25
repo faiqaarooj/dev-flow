@@ -119,6 +119,7 @@ export interface ApiClient {
   downloadBlob: (content: string, filename: string, mimeType?: string) => void
   downloadPrdUrl: string
   downloadSystemDesignUrl: string
+  downloadAuditReportUrl: string
   getScanReportUrl: (scanId: string) => string
   getPatchDownloadUrl: (scanId: string, proposalId: string) => string
 }
