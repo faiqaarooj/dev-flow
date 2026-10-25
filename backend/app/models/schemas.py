@@ -55,6 +55,8 @@ class Finding(BaseModel):
 class ScanDetailResponse(BaseModel):
     scan_id: str
     status: str
+    error_code: str | None = None
+    error_message: str | None = None
     repository_url: str | None = None
     repository_name: str | None = None
     files_analyzed: int | None = None
@@ -99,6 +101,8 @@ class ScanSummaryResponse(BaseModel):
     repository_name: str | None = None
     ref: str | None = None
     status: str
+    error_code: str | None = None
+    error_message: str | None = None
     findings_count: int = 0
     created_at: str | None = None
 

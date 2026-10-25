@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import io
 import os
 import re
+import shutil
 import subprocess
+import zipfile
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -10,10 +14,7 @@ import httpx
 
 from app.config import settings
 
-
-SUPPORTED_GITHUB_REPO_RE = re.compile(
-    r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:/)?(?:\.git)?/?$"
-)
+logger = logging.getLogger("devflow.repo")
 
 
 class RepositoryService:
@@ -22,66 +23,170 @@ class RepositoryService:
             raise ValueError("Provide a supported public GitHub repository URL.")
 
         cleaned = repository_url.strip()
-        match = SUPPORTED_GITHUB_REPO_RE.match(cleaned)
-        if not match:
-            raise ValueError("Provide a supported public GitHub repository URL (e.g., https://github.com/owner/repo).")
+        if cleaned.startswith("http://"):
+            raise ValueError("Provide a supported public GitHub repository URL with HTTPS.")
+        if not cleaned.startswith("https://"):
+            cleaned = "https://" + cleaned
 
-        owner, repo = match.groups()
-        # Prevent traversal or unsafe identifiers
+        cleaned = re.sub(r"^https://www\.github\.com", "https://github.com", cleaned)
+
+        # Support tree or blob urls e.g. https://github.com/owner/repo/tree/branch-name
+        m_tree = re.match(
+            r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)/(?:tree|blob)/([^/]+)/?$",
+            cleaned,
+        )
+        if m_tree:
+            owner, repo, ref = m_tree.groups()
+            repo = re.sub(r"\.git$", "", repo)
+            self._validate_identifiers(owner, repo)
+            return owner, repo, ref
+
+        # Support standard repo urls e.g. https://github.com/owner/repo or https://github.com/owner/repo.git
+        m_repo = re.match(
+            r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$",
+            cleaned,
+        )
+        if m_repo:
+            owner, repo = m_repo.groups()
+            repo = re.sub(r"\.git$", "", repo)
+            self._validate_identifiers(owner, repo)
+            return owner, repo, None
+
+        raise ValueError(
+            "Provide a supported public GitHub repository URL (e.g., https://github.com/owner/repo)."
+        )
+
+    def _validate_identifiers(self, owner: str, repo: str) -> None:
         if owner in (".", "..") or repo in (".", "..") or "/" in owner or "/" in repo:
             raise ValueError("Invalid repository identifier.")
+        if not re.match(r"^[A-Za-z0-9_.-]+$", owner) or not re.match(r"^[A-Za-z0-9_.-]+$", repo):
+            raise ValueError("Repository identifier contains unsupported characters.")
 
-        return owner, repo, None
+    def download_repo_archive(
+        self, owner: str, repo: str, target_dir: Path, ref: str | None = None
+    ) -> bool:
+        """Downloads and extracts the repository archive via HTTP, without requiring git CLI."""
+        target_ref = ref if (ref and ref not in ("default", "HEAD")) else "HEAD"
+        urls_to_try = [
+            f"https://github.com/{owner}/{repo}/archive/{target_ref}.zip",
+            f"https://github.com/{owner}/{repo}/archive/refs/heads/{target_ref}.zip",
+            f"https://github.com/{owner}/{repo}/archive/HEAD.zip",
+        ]
+        headers = {"User-Agent": "DevFlow-AI-Security-Auditor/1.0"}
+
+        for url in urls_to_try:
+            try:
+                with httpx.Client(follow_redirects=True, timeout=35.0, headers=headers) as client:
+                    resp = client.get(url)
+                    if resp.status_code == 200 and resp.content:
+                        with zipfile.ZipFile(io.BytesIO(resp.content)) as z:
+                            # Github archives wrap files under a root folder (e.g. repo-ref/)
+                            top_dirs = {name.split("/")[0] for name in z.namelist() if "/" in name}
+                            prefix = list(top_dirs)[0] + "/" if len(top_dirs) == 1 else ""
+                            for member in z.infolist():
+                                if member.is_dir():
+                                    continue
+                                rel_name = (
+                                    member.filename[len(prefix):]
+                                    if prefix and member.filename.startswith(prefix)
+                                    else member.filename
+                                )
+                                # Prevent directory traversal / zip slip
+                                if not rel_name or rel_name.startswith(("/", "\\")) or ".." in rel_name.split("/"):
+                                    continue
+                                out_path = target_dir / rel_name
+                                out_path.parent.mkdir(parents=True, exist_ok=True)
+                                with z.open(member) as src, open(out_path, "wb") as dst:
+                                    dst.write(src.read())
+                        logger.info("Successfully fetched repository archive via HTTP: %s", url)
+                        return True
+                    if resp.status_code == 404:
+                        continue
+                    if resp.status_code in (403, 429):
+                        logger.warning("GitHub archive rate limited (status %s): %s", resp.status_code, url)
+                        break
+            except Exception as exc:
+                logger.warning("Failed archive download attempt from %s: %s", url, exc)
+                continue
+
+        return False
 
     def clone_and_prepare_repo(
         self, owner: str, repo: str, target_dir: Path, ref: str | None = None
     ) -> dict[str, Any]:
-        repo_url = f"https://github.com/{owner}/{repo}.git"
-        cmd = [
-            "git",
-            "-c", "filter.lfs.smudge=cat",
-            "-c", "filter.lfs.clean=cat",
-            "-c", "filter.lfs.process=",
-            "-c", "filter.lfs.required=false",
-            "clone",
-            "--depth", "1",
-        ]
-        if ref and ref not in ("default", "HEAD"):
-            cmd.extend(["--branch", ref])
-        cmd.extend([repo_url, str(target_dir)])
+        retrieval_success = False
+        last_error = ""
 
-        env = {
-            **os.environ,
-            "GIT_TERMINAL_PROMPT": "0",
-            "GIT_ASKPASS": "echo",
-        }
-
+        # Step 1: Download repository archive directly via HTTP (fastest, stateless, no git CLI dependencies)
+        logger.info("Attempting HTTP repository archive download for %s/%s", owner, repo)
         try:
-            completed = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=45,
-                check=False,
-                env=env,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(f"Cloning repository timed out after 45 seconds.") from exc
+            retrieval_success = self.download_repo_archive(owner, repo, target_dir, ref)
+        except Exception as exc:
+            logger.warning("HTTP archive download raised: %s", exc)
+            last_error = str(exc)
 
-        if completed.returncode != 0:
-            error_msg = completed.stderr.strip() or completed.stdout.strip() or "Repository not accessible."
-            lower_err = error_msg.lower()
+        # Step 2: Fall back to git clone if archive download did not succeed and git binary is present
+        if not retrieval_success:
+            git_path = shutil.which("git")
+            if git_path:
+                logger.info("Falling back to git clone for %s/%s", owner, repo)
+                repo_url = f"https://github.com/{owner}/{repo}.git"
+                cmd = [
+                    git_path,
+                    "-c", "filter.lfs.smudge=cat",
+                    "-c", "filter.lfs.clean=cat",
+                    "-c", "filter.lfs.process=",
+                    "-c", "filter.lfs.required=false",
+                    "clone",
+                    "--depth", "1",
+                ]
+                if ref and ref not in ("default", "HEAD"):
+                    cmd.extend(["--branch", ref])
+                cmd.extend([repo_url, str(target_dir)])
+
+                env = {
+                    **os.environ,
+                    "GIT_TERMINAL_PROMPT": "0",
+                    "GIT_ASKPASS": "echo",
+                }
+
+                try:
+                    completed = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=25,
+                        check=False,
+                        env=env,
+                    )
+                    if completed.returncode == 0:
+                        retrieval_success = True
+                    else:
+                        last_error = completed.stderr.strip() or completed.stdout.strip()
+                        logger.warning("Git clone exited %s: %s", completed.returncode, last_error)
+                except Exception as exc:
+                    last_error = str(exc)
+                    logger.warning("Git clone failed with exception: %s", exc)
+
+        if not retrieval_success:
+            lower_err = last_error.lower()
             if (
                 "remote: repository not found" in lower_err
                 or "could not read username" in lower_err
                 or "authentication failed" in lower_err
                 or "fatal: repository" in lower_err
-                or "not found" in lower_err and "git-lfs" not in lower_err
+                or "not found" in lower_err
             ):
-                raise ValueError(f"Repository {owner}/{repo} could not be found or is private.")
-            raise RuntimeError(f"Failed to clone repository: {error_msg}")
+                raise ValueError(
+                    f"Repository '{owner}/{repo}' could not be accessed. Please confirm the repository is public and the URL is correct."
+                )
+            if "timed out" in lower_err:
+                raise RuntimeError(f"Cloning repository '{owner}/{repo}' timed out.")
+            raise RuntimeError(
+                f"Failed to inspect repository '{owner}/{repo}'. Please check repository access permissions."
+            )
 
-        # Scan files in cloned repository
+        # Step 3: Scan files in target repository
         eligible_files = []
         skipped = []
         total_bytes = 0
@@ -121,6 +226,12 @@ class RepositoryService:
             total_bytes += size
             eligible_files.append(rel_path)
 
+        warnings = skipped[:10]
+        if total_discovered == 0:
+            warnings.append(
+                "No Python (.py) source files were detected in this repository. DevFlow security rules inspect Python code."
+            )
+
         return {
             "owner": owner,
             "repo": repo,
@@ -131,7 +242,7 @@ class RepositoryService:
             "files_analyzed": len(eligible_files),
             "files_skipped": len(skipped),
             "total_bytes": total_bytes,
-            "warnings": skipped[:10],
+            "warnings": warnings,
         }
 
     async def fetch_repo_files(self, owner: str, repo: str, ref: str | None = None) -> dict[str, Any]:

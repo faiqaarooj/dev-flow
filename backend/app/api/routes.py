@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import tempfile
 import uuid
 from pathlib import Path
@@ -129,6 +130,8 @@ async def list_scans() -> list[dict[str, Any]]:
                     "repository_name": s["repository_name"],
                     "ref": s["ref"],
                     "status": s["status"],
+                    "error_code": s["error_code"] if "error_code" in s.keys() else None,
+                    "error_message": s["error_message"] if "error_message" in s.keys() else None,
                     "findings_count": count,
                     "created_at": s["created_at"],
                 }
@@ -160,7 +163,19 @@ async def create_scan(payload: ScanCreateRequest, background_tasks: BackgroundTa
         )
         conn.commit()
 
-    # Enqueue scan processing in the background
+    # In serverless environments (like Vercel), execute scan directly to avoid background task freeze
+    if os.environ.get("VERCEL"):
+        execute_scan_task(scan_id, payload.repository_url, owner, repo, payload.ref or ref)
+        with get_connection() as conn:
+            row = conn.execute("SELECT status FROM scans WHERE scan_id = ?", (scan_id,)).fetchone()
+            status = row["status"] if row else "completed"
+        return {
+            "scan_id": scan_id,
+            "status": status,
+            "repository": repo_meta,
+        }
+
+    # In standard server/local environments, enqueue scan processing in the background
     background_tasks.add_task(execute_scan_task, scan_id, payload.repository_url, owner, repo, payload.ref or ref)
 
     return {
@@ -194,7 +209,12 @@ async def get_scan(scan_id: str) -> dict[str, Any]:
         if status in ("completed", "completed_with_warnings"):
             stages = {"repository": "completed", "bandit": "completed", "ai_review": "completed", "triage": "completed"}
         elif status == "failed":
-            stages = {"repository": "failed", "bandit": "skipped", "ai_review": "skipped", "triage": "skipped"}
+            stages = {
+                "repository": "failed" if scan["error_code"] == "REPOSITORY_ERROR" else "completed",
+                "bandit": "failed" if scan["error_code"] == "SCAN_ERROR" else "skipped",
+                "ai_review": "skipped",
+                "triage": "skipped",
+            }
         elif status == "running":
             stages = {"repository": "completed", "bandit": "running", "ai_review": "queued", "triage": "queued"}
         else:
@@ -203,6 +223,8 @@ async def get_scan(scan_id: str) -> dict[str, Any]:
         return {
             "scan_id": scan["scan_id"],
             "status": status,
+            "error_code": scan["error_code"] if "error_code" in scan.keys() else None,
+            "error_message": scan["error_message"] if "error_message" in scan.keys() else None,
             "repository_url": scan["repository_url"],
             "repository_name": scan["repository_name"],
             "files_analyzed": coverage_data.get("files_analyzed", 0),
