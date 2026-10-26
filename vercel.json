@@ -38,9 +38,38 @@
       }
     },
     {
+      "source": "/assets/(.*)",
+      "destination": {
+        "service": "frontend",
+        "path": "/assets/$1"
+      }
+    },
+    {
+      "source": "/favicon.svg",
+      "destination": {
+        "service": "frontend",
+        "path": "/favicon.svg"
+      }
+    },
+    {
+      "source": "/hero-developer.jpg",
+      "destination": {
+        "service": "frontend",
+        "path": "/hero-developer.jpg"
+      }
+    },
+    {
+      "source": "/robots.txt",
+      "destination": {
+        "service": "frontend",
+        "path": "/robots.txt"
+      }
+    },
+    {
       "source": "/(.*)",
       "destination": {
-        "service": "frontend"
+        "service": "frontend",
+        "path": "/index.html"
       }
     }
   ]
