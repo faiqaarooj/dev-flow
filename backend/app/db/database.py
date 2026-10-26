@@ -97,4 +97,9 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_findings_scan_id ON findings(scan_id);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_proposals_scan_id ON patch_proposals(scan_id);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_verifications_scan_id ON verifications(scan_id);")
         conn.commit()
+

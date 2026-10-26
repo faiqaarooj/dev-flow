@@ -98,6 +98,12 @@ export const api = {
   downloadPrdUrl: `${API_BASE_URL}/api/docs/prd`,
   downloadSystemDesignUrl: `${API_BASE_URL}/api/docs/system-design`,
   downloadAuditReportUrl: `${API_BASE_URL}/api/docs/audit-report`,
+  getPrdUrl: (scanId) => (scanId ? `${API_BASE_URL}/api/docs/prd?scan_id=${encodeURIComponent(scanId)}` : `${API_BASE_URL}/api/docs/prd`),
+  getSystemDesignUrl: (scanId) => (scanId ? `${API_BASE_URL}/api/docs/system-design?scan_id=${encodeURIComponent(scanId)}` : `${API_BASE_URL}/api/docs/system-design`),
+  getAuditReportUrl: (scanId) => (scanId ? `${API_BASE_URL}/api/docs/audit-report?scan_id=${encodeURIComponent(scanId)}` : `${API_BASE_URL}/api/docs/audit-report`),
+  getDocDownloadUrl: (slug, scanId) => (scanId ? `${API_BASE_URL}/api/docs/${encodeURIComponent(slug)}?scan_id=${encodeURIComponent(scanId)}` : `${API_BASE_URL}/api/docs/${encodeURIComponent(slug)}`),
   getScanReportUrl: (scanId) => `${API_BASE_URL}/api/scans/${encodeURIComponent(scanId)}/export/report`,
   getPatchDownloadUrl: (scanId, proposalId) => `${API_BASE_URL}/api/scans/${encodeURIComponent(scanId)}/fixes/${encodeURIComponent(proposalId)}/download`,
+  getDocsList: (scanId) => request(scanId ? `/api/docs/list?scan_id=${encodeURIComponent(scanId)}` : '/api/docs/list'),
+  getDocContent: (slug, scanId) => request(scanId ? `/api/docs/${encodeURIComponent(slug)}/content?scan_id=${encodeURIComponent(scanId)}` : `/api/docs/${encodeURIComponent(slug)}/content`),
 }

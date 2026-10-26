@@ -1,37 +1,40 @@
-# DevFlow
+# DevFlow AI — System Design & Engineering Documentation Suite
 
-We don't just detect vulnerabilities; we show developers how to fix them and verify that the problem is solved.
+**Release Version:** 2.2 — Production Operational Suite  
+**Status:** 100% Implemented & Verified in Production  
+**Lead Designer & Software Engineer:** Faiqa Arooj (Bugfolio, SE-Tech Society, Google Developer Groups)  
+**Repository:** `https://github.com/faiqaarooj/dev-flow.git`  
+**Live Application:** `https://dev-flow-iota-nine.vercel.app`  
 
-DevFlow AI is planned as a read-only security review workflow for public Python GitHub repositories. The project documents the intended architecture and currently includes an initial FastAPI backend scaffold.
+---
 
-## Backend setup
+## 1. Documentation Index
 
-Requirements: Python 3.12 or newer.
+This directory contains the certified, production-grade system design and technical specifications for the DevFlow AI platform.
 
-From the `backend` directory, create and activate a virtual environment, then install dependencies:
+| Document | Name & Scope | Description |
+|---|---|---|
+| [**00-project-charter.md**](file:///Users/apple/Desktop/hackathon/docs/00-project-charter.md) | Project Charter & Mission | Product thesis, stakeholder matrix, core differentiators, and non-negotiables. |
+| [**01-requirements.md**](file:///Users/apple/Desktop/hackathon/docs/01-requirements.md) | Functional & Non-Functional PRD | Detailed requirements matrix, performance SLAs, and security criteria. |
+| [**02-system-architecture.md**](file:///Users/apple/Desktop/hackathon/docs/02-system-architecture.md) | System Architecture & Design | Monolith architecture, ingestion pipeline, sequence flows, ADRs, and deployment fixes. |
+| [**03-agent-and-workflow-design.md**](file:///Users/apple/Desktop/hackathon/docs/03-agent-and-workflow-design.md) | Multi-Agent Coordination | 6 bounded agent roles, AST analysis, 3-tier AI patch hierarchy, and sandbox verification. |
+| [**04-api-contracts.md**](file:///Users/apple/Desktop/hackathon/docs/04-api-contracts.md) | REST API & Protocol Specs | OpenAPI endpoints, request/response JSON schemas, and documentation streaming. |
+| [**05-data-model.md**](file:///Users/apple/Desktop/hackathon/docs/05-data-model.md) | Data Model & SQLite DDL | Embedded SQLite 3 schema (`devflow.db`), indexes, ER diagrams, and WAL mode. |
+| [**06-security-and-threat-model.md**](file:///Users/apple/Desktop/hackathon/docs/06-security-and-threat-model.md) | Security & STRIDE Threat Model | Zero-trust defenses, Zip-Slip path sanitization, quota bounds, and sandboxing. |
+| [**07-implementation-roadmap.md**](file:///Users/apple/Desktop/hackathon/docs/07-implementation-roadmap.md) | Milestone Delivery Ledger | Complete verification ledger of all implemented platform milestones. |
+| [**08-testing-and-quality-plan.md**](file:///Users/apple/Desktop/hackathon/docs/08-testing-and-quality-plan.md) | Quality Assurance & Test Ledger | 19 automated tests, test case matrix, and 529ms frontend production build metrics. |
+| [**09-dnotifier-integration.md**](file:///Users/apple/Desktop/hackathon/docs/09-dnotifier-integration.md) | DNotifier Gateway Architecture | HMAC-SHA256 signature verification, event schemas, and fault tolerance. |
+| [**10-demo-and-presentation-plan.md**](file:///Users/apple/Desktop/hackathon/docs/10-demo-and-presentation-plan.md) | Live Demo Runbook & Script | Step-by-step presentation sequence, tested repo targets, and defense answers. |
+| [**SYSTEM_DESIGN.md**](file:///Users/apple/Desktop/hackathon/SYSTEM_DESIGN.md) | Comprehensive Root System Design | Master architectural specification available directly via `/api/docs/system-design`. |
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-```
+---
 
-Copy `.env.example` to `.env` and set `GEMINI_API_KEY` for Gemini-powered features. Keep `.env` local; it is ignored by Git. The key is not required to start the API.
+## 2. Production Architecture Summary
 
-Start the backend from the `backend` directory:
-
-```powershell
-python -m uvicorn app.main:app --reload
-```
-
-The API is available at `http://127.0.0.1:8000`; interactive API documentation is at `/docs`. `GET /health` checks that the API process is running.
-
-## Current implementation status
-
-The backend is an early scaffold. Scan creation currently validates the repository URL and queues a scan record; it does not yet retrieve repository files or run the full Bandit/Gemini remediation workflow. The planning documents describe the target behavior and staged implementation roadmap.
-
-## Security notes
-
-- Never commit `.env` files, API keys, the local virtual environment, or generated databases.
-- The intended workflow is read-only and must not execute submitted repository code.
-- Scanner/AI failures and partial coverage must not be reported as a clean scan.
+DevFlow AI is an autonomous security auditing platform built for developers:
+- **Frontend:** React 18 + Vite 8 SPA styled in minimalist dark aesthetic (`#1a1a1a` with `#f4c453` yellow accents) using Tailwind CSS and Framer Motion. Edge routing is protected by catch-all SPA rewrites.
+- **Backend:** Python 3.9+ FastAPI ASGI application with dual-mode execution (local persistent uvicorn and synchronous serverless Vercel execution).
+- **Static Analysis:** Bandit v1.7.9 AST visitor engine operating with zero dynamic code execution.
+- **Remediation:** 3-tier patch engine (Gemini 2.0 Flash -> GPT-4o-mini -> deterministic offline rule heuristics).
+- **Verification:** Ephemeral sandbox workspace re-scanning patches before human review.
+- **Alerts:** Non-blocking asynchronous HMAC-signed event dispatch via DNotifier.

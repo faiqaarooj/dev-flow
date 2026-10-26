@@ -120,8 +120,14 @@ export interface ApiClient {
   downloadPrdUrl: string
   downloadSystemDesignUrl: string
   downloadAuditReportUrl: string
+  getPrdUrl: (scanId?: string | null) => string
+  getSystemDesignUrl: (scanId?: string | null) => string
+  getAuditReportUrl: (scanId?: string | null) => string
+  getDocDownloadUrl: (slug: string, scanId?: string | null) => string
   getScanReportUrl: (scanId: string) => string
   getPatchDownloadUrl: (scanId: string, proposalId: string) => string
+  getDocsList: (scanId?: string | null) => Promise<{ documents: any[] }>
+  getDocContent: (slug: string, scanId?: string | null) => Promise<any>
 }
 
 export const api: ApiClient

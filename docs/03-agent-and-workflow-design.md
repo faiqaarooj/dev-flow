@@ -1,113 +1,85 @@
-# 03 — Agent and Workflow Design
+# 03 — Agent & Workflow System Design
 
-## 1. Important distinction
+**Version:** 2.2 — Production Operational Specification  
+**Status:** Implemented & Verified in Production  
+**Lead Designer & Software Engineer:** Faiqa Arooj (Bugfolio, SE-Tech Society, Google Developer Groups)  
+**Target:** DevFlow AI Multi-Agent Orchestration Engine  
 
-For the MVP, an “agent” is a bounded module with a defined input and output. It does not have unrestricted autonomy or tools. The coordinator controls the order, limits, and failure paths.
+---
 
-## 2. Workflow
+## 1. Multi-Agent Architectural Pattern
+
+DevFlow AI rejects unconstrained, non-deterministic agent loops in favor of a **bounded coordinator-worker pipeline**. Each specialized agent has explicit input/output boundaries, strict runtime timeout gates, and deterministic fallback procedures.
 
 ```mermaid
 flowchart TD
-    A[Submit repository URL] --> B{URL supported?}
-    B -- No --> E[Return validation error]
-    B -- Yes --> C[Repository Intelligence]
-    C --> D{Repository retrieved within limits?}
-    D -- No --> F[Mark scan failed or partial with reason]
-    D -- Yes --> G[Bandit scan]
-    G --> H[AI-assisted review]
-    H --> I[Normalize and triage]
-    I --> J[Display findings and coverage]
-    J --> K[User selects finding]
-    K --> L[Remediation proposal]
-    L --> M[Validate patch format and target path]
-    M --> N{Patch valid?}
-    N -- No --> O[Return proposal error; do not apply]
-    N -- Yes --> P[Re-scan proposed file/content]
-    P --> Q[Compare relevant findings]
-    Q --> S[Report resolved / still detected / unverified]
+    START([Submit Repository URL]) --> VAL{Coordinator Validation}
+    VAL -->|Malformed URL| ERR1[HTTP 400: INVALID_REPOSITORY_URL]
+    VAL -->|Valid GitHub URL| AGENT1[Agent 1: Ingestion & Inspector]
+    
+    AGENT1 --> STREAM{Stream Zipball Archive}
+    STREAM -->|HTTP 200| EXTRACT[Safe Zip Extraction & Quotas]
+    STREAM -->|404 / Blocked / Timeout| CLONE[Shallow Clone Watchdog < 25s]
+    
+    EXTRACT --> AGENT2[Agent 2: Bandit AST Scanner]
+    CLONE --> AGENT2
+    
+    AGENT2 --> RAW[Collect AST Nodes & Code Snippets]
+    RAW --> AGENT3[Agent 3: Priority & CWE/OWASP Triage]
+    AGENT3 --> STORE[(Persist to SQLite devflow.db)]
+    
+    STORE --> ALERT[Agent 6: DNotifier Gateway Alert]
+    STORE --> UI([Render Findings on Dashboard])
+    
+    UI --> FIX_REQ([User Requests Fix])
+    FIX_REQ --> AGENT4[Agent 4: 3-Tier AI Patch Synthesizer]
+    AGENT4 --> PROPOSAL[Generate Unified Diff]
+    
+    PROPOSAL --> AGENT5[Agent 5: Isolated Sandbox Verifier]
+    AGENT5 --> RESCAN[Apply Diff & Re-scan AST]
+    RESCAN --> VERIFIED{Is Vulnerability Suppressed?}
+    VERIFIED -->|Yes| RES_OK[Status: RESOLVED]
+    VERIFIED -->|No| RES_FAIL[Status: STILL_DETECTED]
+    RES_OK --> REPORT[Update Database & Render Proof]
+    RES_FAIL --> REPORT
 ```
 
-## 3. Agent contracts
+---
 
-### A. Repository Intelligence Agent
-**Purpose:** establish what the system can safely analyze.
+## 2. Specialized Agent Roles & Contracts
 
-Input: validated GitHub owner/repo/ref.
+### Agent 1: Repository Ingestion & Inspector Agent
+- **Service Implementation:** [`backend/app/services/repo_service.py`](file:///Users/apple/Desktop/hackathon/backend/app/services/repo_service.py)
+- **Input:** Validated GitHub URL (`owner`, `repo`, optional `ref`).
+- **Core Function:** In-memory HTTP archive streaming (`/archive/HEAD.zip`) with fallback to shallow Git cloning (`--depth 1 --filter=blob:none`).
+- **Safety Boundary:** Validates `os.path.commonpath([workspace, extracted_file]) == workspace` against Zip-Slip traversal. Rejects repositories exceeding 200 files, 250 KB per file, or 5 MB total unpacked size.
 
-Output:
-- repository identity and commit/ref where available;
-- list of eligible Python files and manifests;
-- excluded files with reasons;
-- file count, byte totals, and coverage warnings.
+### Agent 2: Static Analysis & AST Scanner Agent
+- **Service Implementation:** [`backend/app/services/bandit_service.py`](file:///Users/apple/Desktop/hackathon/backend/app/services/bandit_service.py)
+- **Input:** Prepared directory containing passive Python source files.
+- **Core Function:** Runs Bandit v1.7.9 AST visitor checks without importing, executing, or installing target code.
+- **Safety Boundary:** Enforces `shell=False` with discrete token arrays (`["bandit", "-r", ..., "-f", "json"]`).
 
-Rules:
-- Do not execute code.
-- Do not follow arbitrary external URLs embedded in files.
-- Reject path traversal and unusual paths.
-- Apply configurable size and count limits.
+### Agent 3: Priority Triage & Taxonomy Classifier Agent
+- **Service Implementation:** [`backend/app/services/triage_service.py`](file:///Users/apple/Desktop/hackathon/backend/app/services/triage_service.py)
+- **Input:** Raw Bandit findings and code context.
+- **Core Function:** Normalizes finding schemas, maps rule IDs to OWASP Top 10 (2021) and MITRE CWE identifiers, and computes deterministic priority rankings (`critical`, `high`, `medium`, `low`).
 
-### B. Security Analysis Agent
-**Purpose:** collect deterministic findings and optional AI review observations.
+### Agent 4: 3-Tier Remediation & Patch Synthesizer Agent
+- **Service Implementation:** [`backend/app/services/ai_service.py`](file:///Users/apple/Desktop/hackathon/backend/app/services/ai_service.py)
+- **Input:** Specific security finding, line range, and code snippet.
+- **3-Tier Execution Hierarchy:**
+  1. *Tier 1 (Primary):* Google Gemini 2.0 Flash (`gemini-2.0-flash`).
+  2. *Tier 2 (Secondary):* OpenAI GPT-4o-mini (`gpt-4o-mini`).
+  3. *Tier 3 (Offline Rule Engine):* Deterministic AST patch synthesis for B104 (wildcard bind), B108 (tempfile handling), B110 (try-except-pass), and B602 (subprocess shell).
 
-Input: eligible source files, coverage metadata, Bandit output.
+### Agent 5: Ephemeral Sandbox Verifier Agent
+- **Service Implementation:** [`backend/app/services/verification_service.py`](file:///Users/apple/Desktop/hackathon/backend/app/services/verification_service.py)
+- **Input:** Original source file snippet and synthesized patch diff.
+- **Core Function:** Creates a disposable temporary workspace, writes the patched file, and executes a targeted Bandit AST re-scan.
+- **Output:** Proof ledger certifying whether the vulnerability is `resolved`, `still_detected`, or `unverified`.
 
-Output: normalized findings with `source_type`, rule/category, message, location, evidence, and confidence where supported.
-
-Rules:
-- Bandit results are tool findings, not guaranteed exploitable vulnerabilities.
-- AI-only observations must use a separate source label.
-- Missing scanner output or an AI timeout is a failure/partial result, not an empty list.
-
-### C. Risk Triage Agent
-**Purpose:** group related findings and recommend review order.
-
-Input: normalized findings and available context.
-
-Output: priority (`critical`, `high`, `medium`, `low`, `info`, or `unknown`), rationale, confidence, and manual-review flag.
-
-Rules:
-- Do not invent CVSS scores.
-- Do not claim exploitability without evidence.
-- Preserve original scanner severity and rule ID.
-- Keep uncertain results visibly uncertain.
-
-### D. Remediation Agent
-**Purpose:** propose a reviewable change for one selected finding.
-
-Input: finding, relevant source context, constraints, repository/ref metadata.
-
-Output: explanation, target path, unified diff or replacement content, assumptions, and review notes.
-
-Rules:
-- Proposal only; never write to GitHub.
-- Ensure target path belongs to the retrieved file set.
-- Reject malformed diffs and paths outside the workspace.
-- Do not describe the patch as safe until tested and re-scanned.
-
-### E. Coordinator
-**Purpose:** orchestrate all stages and preserve traceability.
-
-Responsibilities:
-- assign scan/finding/proposal IDs;
-- enforce stage order and timeouts;
-- record per-stage success/failure;
-- pass only necessary context to each module;
-- normalize exceptions into API errors;
-- ensure incomplete scans are not marked clean.
-
-## 4. Verification semantics
-
-- `resolved`: the relevant scanner rule no longer reports the target issue in the changed file under the same configured scan conditions.
-- `still_detected`: the relevant rule still reports the issue.
-- `unverified`: the re-scan failed, coverage changed, the finding cannot be matched reliably, or the issue was AI-only and has no deterministic check.
-
-A `resolved` status is scoped to the configured check and analyzed content. It does not mean the repository is fully secure.
-
-## 5. Failure policy
-
-- GitHub API failure → stop repository retrieval; return failed scan.
-- Some files skipped due to limits → partial coverage warning.
-- Bandit unavailable or failed → scanner stage failed; do not claim zero findings.
-- OpenAI unavailable → scanner findings can still be displayed; AI analysis marked unavailable.
-- Patch generation invalid → do not apply or re-scan malformed patch; show error.
-- Re-scan failure → status `unverified`, not `resolved`.
+### Agent 6: DNotifier Gateway Agent
+- **Service Implementation:** [`backend/app/services/dnotifier_service.py`](file:///Users/apple/Desktop/hackathon/backend/app/services/dnotifier_service.py)
+- **Input:** Completed scan summary, findings count, and repository metadata.
+- **Core Function:** Dispatches an HMAC-SHA256 signed JSON alert event to the DNotifier gateway asynchronously, providing non-blocking notification delivery.

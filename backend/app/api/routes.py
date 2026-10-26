@@ -25,6 +25,7 @@ from app.models.schemas import (
 )
 from app.services.ai_service import AIService
 from app.services.bandit_service import BanditService
+from app.services.dnotifier_service import DNotifierService
 from app.services.repo_service import RepositoryService
 from app.services.triage_service import TriageService
 from app.services.verification_service import VerificationService
@@ -36,6 +37,7 @@ bandit_service = BanditService()
 ai_service = AIService()
 triage_service = TriageService()
 verification_service = VerificationService()
+dnotifier_service = DNotifierService()
 
 
 def execute_scan_task(scan_id: str, repository_url: str, owner: str, repo: str, ref: str | None) -> None:
@@ -91,6 +93,20 @@ def execute_scan_task(scan_id: str, repository_url: str, owner: str, repo: str, 
                     (status, json.dumps(repo_data), scan_id),
                 )
                 conn.commit()
+
+            try:
+                import asyncio
+                asyncio.run(
+                    dnotifier_service.send_scan_alert(
+                        scan_id=scan_id,
+                        repository_url=repository_url,
+                        findings_count=len(raw_results),
+                        status=status,
+                        summary=repo_data,
+                    )
+                )
+            except Exception as notify_err:
+                logger.debug("DNotifier alert dispatch fallback: %s", notify_err)
 
         except ValueError as exc:
             with get_connection() as conn:
@@ -544,38 +560,127 @@ async def rescan_scan(scan_id: str, payload: RescanRequest) -> dict[str, Any]:
 
 
 
+from app.services.document_generator import (
+    generate_document,
+    generate_prd,
+    generate_system_design,
+    get_document_payload,
+    get_scan_context,
+    list_available_documents,
+)
+
+
+@router.get("/api/docs/list")
+async def get_docs_list(scan_id: str | None = None):
+    """List all available documentation suite files with scan-specific metadata."""
+    try:
+        return {"documents": list_available_documents(scan_id)}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail={"error": {"code": "DOCS_LIST_ERROR", "message": str(exc)}}) from exc
+
+
+@router.get("/api/docs/content")
+async def get_doc_content_query(slug: str = "02-system-architecture", scan_id: str | None = None):
+    """Retrieve JSON document payload for interactive UI rendering."""
+    try:
+        return get_document_payload(slug, scan_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail={"error": {"code": "DOC_CONTENT_ERROR", "message": str(exc)}}) from exc
+
+
+@router.get("/api/docs/{doc_slug}/content")
+async def get_doc_content(doc_slug: str, scan_id: str | None = None):
+    """Retrieve JSON document payload by slug for interactive UI rendering."""
+    try:
+        return get_document_payload(doc_slug, scan_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail={"error": {"code": "DOC_CONTENT_ERROR", "message": str(exc)}}) from exc
+
+
 @router.get("/api/docs/prd")
-async def download_prd():
-    root = Path(__file__).resolve().parent.parent.parent.parent
-    prd_file = root / "hackathon.md"
-    if not prd_file.exists():
-        prd_file = root / "docs" / "01-requirements.md"
-    if not prd_file.exists():
-        raise HTTPException(status_code=404, detail="PRD document not found.")
-    content = prd_file.read_text(encoding="utf-8")
+async def download_prd(scan_id: str | None = None):
+    try:
+        content = generate_prd(scan_id)
+        scan, _, _, _, _ = get_scan_context(scan_id)
+        repo_name = scan.get("repository_name") or "Repository"
+        filename = f"{repo_name}-PRD.md"
+    except Exception:
+        root = Path(__file__).resolve().parent.parent.parent.parent
+        prd_file = root / "hackathon.md"
+        if not prd_file.exists():
+            prd_file = root / "docs" / "01-requirements.md"
+        content = prd_file.read_text(encoding="utf-8") if prd_file.exists() else "# PRD"
+        filename = "DevFlow-AI-PRD.md"
+
     return Response(
         content=content,
         media_type="text/markdown",
-        headers={"Content-Disposition": 'attachment; filename="DevFlow-AI-PRD.md"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
 @router.get("/api/docs/system-design")
-async def download_system_design():
-    root = Path(__file__).resolve().parent.parent.parent.parent
-    sd_file = root / "docs" / "02-system-architecture.md"
-    if not sd_file.exists():
-        raise HTTPException(status_code=404, detail="System Design document not found.")
-    content = sd_file.read_text(encoding="utf-8")
+async def download_system_design(scan_id: str | None = None):
+    try:
+        content = generate_system_design(scan_id)
+        scan, _, _, _, _ = get_scan_context(scan_id)
+        repo_name = scan.get("repository_name") or "Repository"
+        filename = f"{repo_name}-System-Design.md"
+    except Exception:
+        root = Path(__file__).resolve().parent.parent.parent.parent
+        sd_file = root / "SYSTEM_DESIGN.md"
+        if not sd_file.exists():
+            sd_file = root / "docs" / "02-system-architecture.md"
+        content = sd_file.read_text(encoding="utf-8") if sd_file.exists() else "# System Design"
+        filename = "DevFlow-AI-System-Design.md"
+
     return Response(
         content=content,
         media_type="text/markdown",
-        headers={"Content-Disposition": 'attachment; filename="DevFlow-AI-System-Design.md"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/api/docs/{doc_slug}")
+async def download_custom_doc(doc_slug: str, scan_id: str | None = None):
+    """Download any document by slug (.md) populated dynamically with target repo problems and solutions."""
+    if doc_slug in ("prd", "requirements"):
+        return await download_prd(scan_id)
+    if doc_slug in ("system-design", "system-architecture", "architecture"):
+        return await download_system_design(scan_id)
+    if doc_slug in ("audit-report", "security-audit-report"):
+        return await download_audit_report(scan_id)
+
+    try:
+        content = generate_document(doc_slug, scan_id)
+        scan, _, _, _, _ = get_scan_context(scan_id)
+        repo_name = scan.get("repository_name") or "Repository"
+        clean_slug = doc_slug.replace(".md", "")
+        filename = f"{repo_name}-{clean_slug}.md"
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail={"error": {"code": "DOC_GENERATION_FAILED", "message": str(exc)}}) from exc
+
+    return Response(
+        content=content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
 @router.get("/api/docs/audit-report")
-async def download_audit_report():
+async def download_audit_report(scan_id: str | None = None):
+    init_db()
+    with get_connection() as conn:
+        scan_row = None
+        if scan_id:
+            scan_row = conn.execute("SELECT * FROM scans WHERE scan_id = ?", (scan_id,)).fetchone()
+        if not scan_row:
+            scan_row = conn.execute("SELECT * FROM scans ORDER BY created_at DESC LIMIT 1").fetchone()
+
+    if scan_row:
+        # Delegate to the dynamic scan report generator
+        return await export_scan_report(scan_row["scan_id"])
+
     root = Path(__file__).resolve().parent.parent.parent.parent
     report_file = root / "SECURITY_AUDIT_REPORT.md"
     if not report_file.exists():

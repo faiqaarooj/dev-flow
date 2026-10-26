@@ -117,22 +117,35 @@ class TestAPIRoutes(unittest.TestCase):
         response = self.client.get("/api/docs/prd")
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/markdown", response.headers.get("content-type", ""))
-        self.assertIn("DevFlow-AI-PRD.md", response.headers.get("content-disposition", ""))
-        self.assertIn("DevFlow AI", response.text)
+        self.assertIn("-PRD.md", response.headers.get("content-disposition", ""))
+        self.assertIn("Requirements", response.text)
 
     def test_download_system_design_endpoint(self):
         response = self.client.get("/api/docs/system-design")
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/markdown", response.headers.get("content-type", ""))
-        self.assertIn("DevFlow-AI-System-Design.md", response.headers.get("content-disposition", ""))
+        self.assertIn("-System-Design.md", response.headers.get("content-disposition", ""))
         self.assertIn("Architecture", response.text)
 
     def test_download_audit_report_endpoint(self):
         response = self.client.get("/api/docs/audit-report")
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/markdown", response.headers.get("content-type", ""))
-        self.assertIn("DevFlow-AI-Security-Audit-Report.md", response.headers.get("content-disposition", ""))
-        self.assertIn("DevFlow AI — Official Security Audit Report", response.text)
+        self.assertIn("attachment; filename=", response.headers.get("content-disposition", ""))
+        self.assertTrue("Audit Report" in response.text or "Security" in response.text)
+
+    def test_docs_list_and_interactive_content(self):
+        list_res = self.client.get("/api/docs/list")
+        self.assertEqual(list_res.status_code, 200)
+        docs = list_res.json().get("documents", [])
+        self.assertGreaterEqual(len(docs), 5)
+
+        content_res = self.client.get("/api/docs/content?slug=02-system-architecture")
+        self.assertEqual(content_res.status_code, 200)
+        payload = content_res.json()
+        self.assertIn("markdown", payload)
+        self.assertIn("repository", payload)
+        self.assertIn("findings", payload)
 
 
 if __name__ == "__main__":

@@ -118,5 +118,24 @@ class TestVerificationService(unittest.TestCase):
         self.assertEqual(result["status"], "unverified")
 
 
+class TestDNotifierService(unittest.TestCase):
+    def test_signature_generation(self):
+        from app.services.dnotifier_service import DNotifierService
+        service = DNotifierService()
+        sig = service._generate_signature(b'{"test": "payload"}')
+        if service.app_secret:
+            self.assertTrue(len(sig) > 0)
+        else:
+            self.assertEqual(sig, "")
+
+    def test_alert_send_handles_network_gracefully(self):
+        import asyncio
+        from app.services.dnotifier_service import DNotifierService
+        service = DNotifierService()
+        res = asyncio.run(service.send_scan_alert("scan_123", "https://github.com/test/repo", 0, "completed"))
+        self.assertIn("status", res)
+
+
 if __name__ == "__main__":
     unittest.main()
+

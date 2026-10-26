@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Activity, AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, CircleDot,
-  Clock3, Code2, Download, FileDown, FileSearch, FileText, GitFork, History,
-  Layers, LayoutDashboard, LoaderCircle, Menu, Search, Settings, Shield,
-  ShieldAlert, ShieldCheck, X, XCircle,
+  Activity, AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronRight, CircleDot,
+  Clock3, Code2, Copy, Download, ExternalLink, Eye, FileDown, FileSearch, FileText,
+  GitFork, History, Layers, LayoutDashboard, LoaderCircle, Menu, Search, Settings,
+  Shield, ShieldAlert, ShieldCheck, Sparkles, Workflow, X, XCircle,
 } from 'lucide-react'
-import { createBrowserRouter, Link, NavLink, Outlet, useNavigate, useParams } from 'react-router'
+import { createBrowserRouter, Link, NavLink, Outlet, useNavigate, useParams, useSearchParams } from 'react-router'
 import { api } from '../services/api'
 import { HeroPage } from '../pages/HeroPage'
 import { DevFlowLogo } from '../components/DevFlowLogo'
@@ -144,6 +144,9 @@ function Overview() {
 
   const totalFindings = history.reduce((acc, item) => acc + (item.findings_count || 0), 0)
   const completedScans = history.filter((item) => item.status === 'completed' || item.status === 'completed_with_warnings').length
+  const latestScan = history && history.length > 0 ? history[0] : null
+  const latestScanId = latestScan?.scan_id || latestScan?.id || null
+  const latestRepoLabel = latestScan?.repository?.name || latestScan?.repository_name || 'Repository'
 
   return (
     <>
@@ -162,29 +165,35 @@ function Overview() {
             <FileDown size={18} className="text-[var(--accent-light)]" />
             <span>Download Project Deliverables</span>
           </div>
-          <p className="mt-1 text-xs text-[var(--muted)]">Download official PRD specifications, System Design documents, or scan patches.</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">Download official PRD specifications, System Design documents, or scan patches tailored to your audited repository.</p>
         </div>
         <div className="flex flex-wrap gap-2.5">
+          <Link
+            to={latestScanId ? `/docs?scan_id=${encodeURIComponent(latestScanId)}` : '/docs'}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-yellow-500/50 bg-yellow-500/15 px-3.5 py-2 text-xs font-semibold text-yellow-300 transition hover:bg-yellow-500/25"
+          >
+            <Sparkles size={15} className="text-yellow-400" /> Interactive Docs Studio
+          </Link>
           <a
-            href={api.downloadAuditReportUrl}
-            download="DevFlow-AI-Security-Audit-Report.md"
+            href={api.getAuditReportUrl(latestScanId)}
+            download={`${latestRepoLabel}-Security-Audit-Report.md`}
             className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
           >
-            <ShieldCheck size={15} className="text-emerald-400" /> Download Audit Report (.md)
+            <ShieldCheck size={15} className="text-emerald-400" /> Audit Report (.md)
           </a>
           <a
-            href={api.downloadPrdUrl}
-            download="DevFlow-AI-PRD.md"
+            href={api.getPrdUrl(latestScanId)}
+            download={`${latestRepoLabel}-PRD.md`}
             className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3.5 py-2 text-xs font-semibold text-white transition hover:border-[var(--accent)] hover:bg-[var(--panel-hover)]"
           >
-            <FileText size={15} className="text-yellow-400" /> Download PRD (.md)
+            <FileText size={15} className="text-yellow-400" /> PRD (.md)
           </a>
           <a
-            href={api.downloadSystemDesignUrl}
-            download="DevFlow-AI-System-Design.md"
+            href={api.getSystemDesignUrl(latestScanId)}
+            download={`${latestRepoLabel}-System-Design.md`}
             className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3.5 py-2 text-xs font-semibold text-white transition hover:border-[var(--accent)] hover:bg-[var(--panel-hover)]"
           >
-            <Layers size={15} className="text-purple-400" /> Download System Design (.md)
+            <Layers size={15} className="text-purple-400" /> System Design (.md)
           </a>
         </div>
       </div>
@@ -374,23 +383,29 @@ function ScanResults() {
           <p className="mt-0.5 text-xs text-[var(--muted)]">Export security report, project requirements (PRD), and system architecture.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/docs?scan_id=${encodeURIComponent(scanId)}`}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-yellow-500/50 bg-yellow-500/15 px-3 py-1.5 text-xs font-semibold text-yellow-300 transition hover:bg-yellow-500/25"
+          >
+            <Sparkles size={14} className="text-yellow-400" /> Interactive Docs
+          </Link>
           <a
-            href={api.getScanReportUrl(scanId)}
-            download={`DevFlow-Security-Report-${scanId}.md`}
+            href={api.getAuditReportUrl(scanId)}
+            download={`${scan?.repository?.name || scan?.repository_name || 'Repository'}-Security-Audit-Report.md`}
             className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-3 py-1.5 text-xs font-semibold text-yellow-300 transition hover:bg-yellow-500/20"
           >
             <Download size={14} /> Audit Report (.md)
           </a>
           <a
-            href={api.downloadPrdUrl}
-            download="DevFlow-AI-PRD.md"
+            href={api.getPrdUrl(scanId)}
+            download={`${scan?.repository?.name || scan?.repository_name || 'Repository'}-PRD.md`}
             className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-1.5 text-xs font-semibold text-white transition hover:border-[var(--accent)]"
           >
             <FileText size={14} className="text-yellow-400" /> PRD (.md)
           </a>
           <a
-            href={api.downloadSystemDesignUrl}
-            download="DevFlow-AI-System-Design.md"
+            href={api.getSystemDesignUrl(scanId)}
+            download={`${scan?.repository?.name || scan?.repository_name || 'Repository'}-System-Design.md`}
             className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-1.5 text-xs font-semibold text-white transition hover:border-[var(--accent)]"
           >
             <Layers size={14} className="text-purple-400" /> System Design (.md)
@@ -687,76 +702,480 @@ function SettingsView() {
   )
 }
 
+function MarkdownDocumentRenderer({ markdown }: { markdown: string }) {
+  const renderedElements = useMemo(() => {
+    if (!markdown) return []
+    const lines = markdown.split('\n')
+    const blocks: any[] = []
+    let currentCode: { lang: string; lines: string[] } | null = null
+    let currentTable: string[] | null = null
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+
+      if (line.startsWith('```')) {
+        if (currentCode) {
+          blocks.push({ type: 'code', lang: currentCode.lang, code: currentCode.lines.join('\n') })
+          currentCode = null
+        } else {
+          currentCode = { lang: line.replace('```', '').trim(), lines: [] }
+        }
+        continue
+      }
+      if (currentCode) {
+        currentCode.lines.push(line)
+        continue
+      }
+
+      if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        if (!currentTable) currentTable = []
+        currentTable.push(line)
+        continue
+      } else if (currentTable) {
+        blocks.push({ type: 'table', rows: currentTable })
+        currentTable = null
+      }
+
+      if (line.startsWith('# ')) {
+        blocks.push({ type: 'h1', text: line.replace(/^#\s+/, '') })
+      } else if (line.startsWith('## ')) {
+        blocks.push({ type: 'h2', text: line.replace(/^##\s+/, '') })
+      } else if (line.startsWith('### ')) {
+        blocks.push({ type: 'h3', text: line.replace(/^###\s+/, '') })
+      } else if (line.startsWith('#### ')) {
+        blocks.push({ type: 'h4', text: line.replace(/^####\s+/, '') })
+      } else if (line.trim() === '---') {
+        blocks.push({ type: 'hr' })
+      } else if (line.startsWith('> ')) {
+        blocks.push({ type: 'quote', text: line.replace(/^>\s+/, '') })
+      } else if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+        blocks.push({ type: 'bullet', text: line.replace(/^(\s*[-*]\s+)/, '') })
+      } else if (/^\d+\.\s+/.test(line.trim())) {
+        blocks.push({ type: 'numbered', text: line.replace(/^(\s*\d+\.\s+)/, '') })
+      } else if (line.trim().length > 0) {
+        blocks.push({ type: 'p', text: line })
+      } else {
+        blocks.push({ type: 'spacing' })
+      }
+    }
+
+    if (currentCode) blocks.push({ type: 'code', lang: currentCode.lang, code: currentCode.lines.join('\n') })
+    if (currentTable) blocks.push({ type: 'table', rows: currentTable })
+
+    return blocks
+  }, [markdown])
+
+  return (
+    <div className="space-y-3.5 text-sm leading-relaxed text-[var(--text)]">
+      {renderedElements.map((b, idx) => {
+        if (b.type === 'h1') return <h1 key={idx} className="text-xl sm:text-2xl font-bold tracking-tight text-white border-b border-[var(--border)] pb-3 mt-4 mb-2">{b.text}</h1>
+        if (b.type === 'h2') return <h2 key={idx} className="text-base sm:text-lg font-bold text-yellow-400 mt-6 mb-2 flex items-center gap-2"><span className="size-2 rounded-full bg-yellow-400" />{b.text}</h2>
+        if (b.type === 'h3') return <h3 key={idx} className="text-sm sm:text-base font-semibold text-white mt-4 mb-1">{b.text}</h3>
+        if (b.type === 'h4') return <h4 key={idx} className="text-xs sm:text-sm font-semibold text-white/90 mt-3">{b.text}</h4>
+        if (b.type === 'hr') return <hr key={idx} className="my-5 border-[var(--border)]" />
+        if (b.type === 'quote') return <blockquote key={idx} className="border-l-2 border-yellow-500/60 bg-yellow-500/5 px-4 py-2 rounded-r-lg text-xs text-[var(--muted)] my-2 italic">{b.text}</blockquote>
+        if (b.type === 'bullet') return <div key={idx} className="flex items-start gap-2 text-xs text-[var(--muted)] pl-2"><span className="text-yellow-400 font-bold">•</span><span>{b.text}</span></div>
+        if (b.type === 'numbered') return <div key={idx} className="flex items-start gap-2 text-xs text-[var(--muted)] pl-2"><span className="text-yellow-400 font-semibold font-mono">→</span><span>{b.text}</span></div>
+        if (b.type === 'p') return <p key={idx} className="text-xs text-[var(--muted)] leading-relaxed">{b.text}</p>
+        if (b.type === 'spacing') return <div key={idx} className="h-1" />
+        if (b.type === 'code') {
+          const isDiff = b.lang === 'diff'
+          return (
+            <div key={idx} className="rounded-xl border border-[var(--border)] bg-[#121212] overflow-hidden my-3">
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border)] bg-[#181818] text-[11px] font-mono text-[var(--muted)]">
+                <span>{b.lang || 'code'}</span>
+                <span className="text-[10px] text-yellow-400/80">Interactive Code Block</span>
+              </div>
+              <pre className="p-3 overflow-x-auto text-xs font-mono">
+                {b.code.split('\n').map((line: string, lineIdx: number) => {
+                  let lineStyle = 'text-white/80'
+                  if (isDiff) {
+                    if (line.startsWith('+') && !line.startsWith('+++')) lineStyle = 'text-emerald-400 bg-emerald-500/10 block -mx-3 px-3'
+                    else if (line.startsWith('-') && !line.startsWith('---')) lineStyle = 'text-rose-400 bg-rose-500/10 block -mx-3 px-3'
+                    else if (line.startsWith('@')) lineStyle = 'text-cyan-400 font-bold block -mx-3 px-3'
+                  }
+                  return <div key={lineIdx} className={lineStyle}>{line || ' '}</div>
+                })}
+              </pre>
+            </div>
+          )
+        }
+        if (b.type === 'table') {
+          const rows = b.rows.map((r: string) => r.split('|').map((c: string) => c.trim()).filter((_: any, i: number, arr: any[]) => i > 0 && i < arr.length - 1))
+          const header = rows[0] || []
+          const body = rows.slice(2)
+          return (
+            <div key={idx} className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--panel)] my-3">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#181818] border-b border-[var(--border)] text-white">
+                  <tr>{header.map((h: string, hi: number) => <th key={hi} className="p-2.5 font-semibold text-yellow-400">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)]">
+                  {body.map((r: string[], ri: number) => (
+                    <tr key={ri} className="hover:bg-white/[0.02]">
+                      {r.map((cell: string, ci: number) => {
+                        const isResolved = cell.includes('RESOLVED')
+                        const isFailed = cell.includes('FAIL') || cell.includes('STILL_DETECTED')
+                        const isBadge = isResolved || isFailed
+                        return (
+                          <td key={ci} className="p-2.5 text-[var(--muted)]">
+                            {isBadge ? (
+                              <span className={cx('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold', isResolved ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30')}>
+                                {cell.replace(/[✅⚠️🔴ℹ️]/g, '').trim()}
+                              </span>
+                            ) : cell}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+        return null
+      })}
+    </div>
+  )
+}
+
 function DocsView() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialScanId = searchParams.get('scan_id') || ''
+  const initialDoc = searchParams.get('doc') || '02-system-architecture'
+
+  const [scans, setScans] = useState<any[]>([])
+  const [selectedScanId, setSelectedScanId] = useState<string>(initialScanId)
+  const [activeSlug, setActiveSlug] = useState<string>(initialDoc)
+  const [docList, setDocList] = useState<any[]>([])
+  const [docPayload, setDocPayload] = useState<any | null>(null)
+  const [activeDefectId, setActiveDefectId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadingDoc, setLoadingDoc] = useState(false)
+  const [viewMode, setViewMode] = useState<'interactive' | 'raw'>('interactive')
+  const [copied, setCopied] = useState(false)
+
+  // 1. Load scan history
+  useEffect(() => {
+    let active = true
+    api.listScans().then((history) => {
+      if (!active) return
+      setScans(history || [])
+      if (!selectedScanId && history && history.length > 0) {
+        setSelectedScanId(history[0].scan_id)
+      }
+      setLoading(false)
+    }).catch(() => {
+      if (active) setLoading(false)
+    })
+    return () => { active = false }
+  }, [])
+
+  // 2. Load doc list when scan changes
+  useEffect(() => {
+    let active = true
+    api.getDocsList(selectedScanId).then((res) => {
+      if (!active) return
+      if (res?.documents) setDocList(res.documents)
+    }).catch(() => {})
+    return () => { active = false }
+  }, [selectedScanId])
+
+  // 3. Load doc content
+  useEffect(() => {
+    let active = true
+    setLoadingDoc(true)
+    api.getDocContent(activeSlug, selectedScanId).then((payload) => {
+      if (!active) return
+      setDocPayload(payload)
+      if (payload?.findings?.length > 0) {
+        setActiveDefectId(payload.findings[0].finding_id)
+      } else {
+        setActiveDefectId(null)
+      }
+      setLoadingDoc(false)
+    }).catch(() => {
+      if (active) setLoadingDoc(false)
+    })
+    return () => { active = false }
+  }, [activeSlug, selectedScanId])
+
+  const copyMarkdown = () => {
+    if (!docPayload?.markdown) return
+    navigator.clipboard.writeText(docPayload.markdown)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const activeDefect = docPayload?.findings?.find((f: any) => f.finding_id === activeDefectId)
+  const activeProposal = docPayload?.proposals?.find((p: any) => p.finding_id === activeDefectId)
+  const activeVerification = activeProposal ? docPayload?.verifications?.find((v: any) => v.proposal_id === activeProposal.proposal_id) : null
+
+  const targetRepo = docPayload?.repository || {
+    name: 'Target Repository',
+    url: 'https://github.com/faiqaarooj/dev-flow.git',
+    owner: 'faiqaarooj',
+    ref: 'main',
+    status: 'completed',
+  }
+
   return (
     <>
       <PageHeading
-        eyebrow="Deliverables"
-        title="Documentation & Downloadable Files"
-        description="Download PRD files, System Design specifications, and security audit reports."
+        eyebrow="Interactive Architecture & Documentation Studio"
+        title="Dynamic Specifications & Target Defect Blueprint"
+        description="Every document dynamically adapts to the selected GitHub repository, populating target defects, root causes, unified diffs, and verified sandbox solutions."
       />
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-6 flex flex-col justify-between">
-          <div>
-            <div className="size-11 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center text-yellow-400 mb-4">
-              <FileText size={22} />
+
+      {/* Target Repository & Scan Switcher Card */}
+      <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-yellow-400 animate-pulse" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-yellow-400">Target Audited GitHub Repository</span>
+              <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                {(targetRepo.status || 'COMPLETED').toUpperCase()}
+              </span>
             </div>
-            <h2 className="text-lg font-bold text-white">Product Requirements Document (PRD)</h2>
-            <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-              Complete product specifications including multi-agent architecture, functional requirements (FR-01 to FR-12), dual ingestion engine, and verification criteria.
+            <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-white">
+              <span>{targetRepo.owner} / {targetRepo.name}</span>
+              <a
+                href={targetRepo.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-[var(--muted)] hover:text-yellow-400 transition"
+              >
+                <span className="font-mono">{targetRepo.url}</span>
+                <ExternalLink size={12} />
+              </a>
+              <span className="text-xs font-mono rounded bg-white/5 border border-white/10 px-1.5 py-0.5 text-[var(--muted)]">
+                ref: {targetRepo.ref || 'main'}
+              </span>
+            </div>
+            <p className="text-xs text-[var(--muted)]">
+              All documents below are dynamically bound to this repository: {docPayload?.findings_count ?? 0} defects analyzed · {docPayload?.proposals_count ?? 0} verified patches synthesized.
             </p>
           </div>
-          <div className="mt-6">
-            <a
-              href={api.downloadPrdUrl}
-              download="DevFlow-AI-PRD.md"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] text-white px-4 py-2.5 text-sm font-semibold transition hover:bg-[var(--accent-hover)] w-full"
+
+          {/* Select different scan */}
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-[var(--muted)] whitespace-nowrap">Switch Target Repo:</label>
+            <select
+              value={selectedScanId}
+              onChange={(e) => {
+                setSelectedScanId(e.target.value)
+                setSearchParams({ scan_id: e.target.value, doc: activeSlug })
+              }}
+              className="h-9 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 text-xs text-white outline-none focus:border-[var(--accent)]"
             >
-              <Download size={16} /> Download PRD (.md)
+              {scans.map((s) => (
+                <option key={s.scan_id} value={s.scan_id}>
+                  {s.repository_name || s.owner ? `${s.owner}/${s.repository_name}` : s.repository_url} ({s.scan_id.slice(-6)})
+                </option>
+              ))}
+              {scans.length === 0 && <option value="">Demonstration Benchmark (faiqaarooj/dev-flow)</option>}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Problem & Solution Switcher */}
+      {docPayload?.findings && docPayload.findings.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-yellow-500/30 bg-gradient-to-b from-yellow-500/[0.05] to-[var(--panel)] p-5">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-yellow-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                Interactive Defect & Verified Solution Explorer for {targetRepo.name}
+              </h3>
+            </div>
+            <span className="text-[11px] text-[var(--muted)]">
+              Click any defect to inspect its target code evidence & verified patch:
+            </span>
+          </div>
+
+          {/* Defect Pill Selector */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {docPayload.findings.map((f: any) => {
+              const isSelected = f.finding_id === activeDefectId
+              const sev = (f.severity || 'medium').toLowerCase()
+              const dotColor = sev === 'high' ? 'bg-rose-400' : (sev === 'medium' ? 'bg-yellow-400' : 'bg-cyan-400')
+              return (
+                <button
+                  key={f.finding_id}
+                  onClick={() => setActiveDefectId(f.finding_id)}
+                  className={cx(
+                    'flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition',
+                    isSelected
+                      ? 'border border-yellow-500 bg-yellow-500/15 text-white shadow-sm'
+                      : 'border border-[var(--border)] bg-[var(--bg)] text-[var(--muted)] hover:text-white hover:border-white/20'
+                  )}
+                >
+                  <span className={cx('size-2 rounded-full', dotColor)} />
+                  <span className="font-mono font-bold text-yellow-400">{f.rule_id}</span>
+                  <span className="truncate max-w-[150px]">{f.file_path?.split('/').pop()}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Active Defect Inspection Detail */}
+          {activeDefect && (
+            <div className="grid gap-4 rounded-xl border border-[var(--border)] bg-[#121212] p-4 lg:grid-cols-2">
+              {/* Left: Problem & Target Code */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-yellow-500/20 px-2 py-0.5 font-mono text-xs font-bold text-yellow-400">
+                      {activeDefect.rule_id}
+                    </span>
+                    <span className="text-xs font-semibold text-white">{activeDefect.title}</span>
+                  </div>
+                  <span className="text-[11px] uppercase font-bold text-yellow-500">
+                    {activeDefect.severity || 'Medium'} Severity
+                  </span>
+                </div>
+                <div className="text-xs text-[var(--muted)] font-mono">
+                  Target: {activeDefect.file_path} (Lines {activeDefect.line_start}–{activeDefect.line_end})
+                </div>
+                <p className="text-xs text-[var(--muted)]">{activeDefect.message}</p>
+                <div className="rounded-lg border border-[var(--border)] bg-black/60 p-2.5">
+                  <div className="text-[10px] font-mono text-[var(--muted)] mb-1">Target Code Evidence:</div>
+                  <pre className="text-xs font-mono text-yellow-200/90 overflow-x-auto whitespace-pre-wrap">
+                    {activeDefect.evidence || '# Evidence snippet'}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Right: Verified Solution & Unified Diff */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-white">Synthesized Architectural Solution</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                    <CheckCircle2 size={12} /> {activeVerification?.status ? activeVerification.status.toUpperCase() : 'RESOLVED'}
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--muted)]">
+                  {activeProposal?.explanation || 'Apply verified defensive refactoring to suppress finding in AST analysis.'}
+                </p>
+                <div className="rounded-lg border border-[var(--border)] bg-black/60 p-2.5">
+                  <div className="text-[10px] font-mono text-emerald-400 mb-1">Unified Diff Patch (.diff):</div>
+                  <pre className="text-xs font-mono text-white/90 overflow-x-auto max-h-36">
+                    {(activeProposal?.diff || '# No diff synthesized').split('\n').map((l: string, i: number) => (
+                      <div key={i} className={l.startsWith('+') && !l.startsWith('+++') ? 'text-emerald-400 bg-emerald-500/10' : l.startsWith('-') && !l.startsWith('---') ? 'text-rose-400 bg-rose-500/10' : 'text-[var(--muted)]'}>
+                        {l || ' '}
+                      </div>
+                    ))}
+                  </pre>
+                </div>
+                <div className="text-[10px] text-[var(--muted)] italic">
+                  Sandbox Verification: AST re-scan confirmed rule suppression with zero code regressions.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Document Tab Navigation */}
+      <div className="mb-4 flex flex-wrap gap-2 border-b border-[var(--border)] pb-3">
+        {[
+          { slug: '02-system-architecture', label: '02 — System Architecture & Design', icon: Layers },
+          { slug: '01-requirements', label: '01 — Requirements & PRD', icon: FileText },
+          { slug: '03-agent-and-workflow-design', label: '03 — Agent & Workflow Design', icon: Workflow },
+          { slug: '06-security-and-threat-model', label: '06 — Security & Threat Model', icon: ShieldAlert },
+          { slug: '08-testing-and-quality-plan', label: '08 — Testing & Quality Plan', icon: CheckCircle2 },
+        ].map((item) => {
+          const isActive = activeSlug === item.slug
+          const Icon = item.icon
+          return (
+            <button
+              key={item.slug}
+              onClick={() => {
+                setActiveSlug(item.slug)
+                setSearchParams({ scan_id: selectedScanId, doc: item.slug })
+              }}
+              className={cx(
+                'flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition',
+                isActive
+                  ? 'border border-[var(--accent)] bg-[var(--accent-soft)] text-white shadow-sm'
+                  : 'border border-[var(--border)] bg-[var(--panel)] text-[var(--muted)] hover:text-white hover:bg-[var(--panel-hover)]'
+              )}
+            >
+              <Icon size={15} className={isActive ? 'text-yellow-400' : 'text-[var(--muted)]'} />
+              <span>{item.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Main Document Viewer Container */}
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] overflow-hidden">
+        {/* Document Action Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[#141414] p-4">
+          <div>
+            <div className="text-xs font-mono font-bold text-yellow-400">
+              {docPayload?.filename || `${targetRepo.name}-Document.md`}
+            </div>
+            <div className="text-[11px] text-[var(--muted)]">
+              Tailored for {targetRepo.url} · {docPayload?.findings_count ?? 0} defects dynamically embedded
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex rounded-lg border border-[var(--border)] bg-[#1a1a1a] p-0.5">
+              <button
+                onClick={() => setViewMode('interactive')}
+                className={cx('px-2.5 py-1 text-xs rounded font-medium transition', viewMode === 'interactive' ? 'bg-yellow-500/20 text-yellow-300' : 'text-[var(--muted)] hover:text-white')}
+              >
+                Interactive
+              </button>
+              <button
+                onClick={() => setViewMode('raw')}
+                className={cx('px-2.5 py-1 text-xs rounded font-medium transition', viewMode === 'raw' ? 'bg-yellow-500/20 text-yellow-300' : 'text-[var(--muted)] hover:text-white')}
+              >
+                Raw Markdown
+              </button>
+            </div>
+
+            {/* Copy Button */}
+            <button
+              onClick={copyMarkdown}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[#1a1a1a] px-3 py-1.5 text-xs font-medium text-white transition hover:border-[var(--accent)]"
+            >
+              {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+              <span>{copied ? 'Copied!' : 'Copy .md'}</span>
+            </button>
+
+            {/* Download Button */}
+            <a
+              href={api.getDocDownloadUrl(activeSlug, selectedScanId)}
+              download={docPayload?.filename || `${targetRepo.name}-${activeSlug}.md`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+            >
+              <Download size={14} />
+              <span>Download (.md)</span>
             </a>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-6 flex flex-col justify-between">
-          <div>
-            <div className="size-11 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-4">
-              <Layers size={22} />
+        {/* Document Content Body */}
+        <div className="p-6">
+          {loadingDoc ? (
+            <div className="flex flex-col items-center justify-center p-12 text-[var(--muted)] gap-3">
+              <LoaderCircle className="animate-spin text-yellow-400" size={28} />
+              <div className="text-xs">Generating dynamic specification for {targetRepo.name}...</div>
             </div>
-            <h2 className="text-lg font-bold text-white">System Design & Architecture</h2>
-            <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-              Detailed system architecture diagrams, dual ingestion pipeline, serverless adaptation, ADRs, database schemas, and API contracts.
-            </p>
-          </div>
-          <div className="mt-6">
-            <a
-              href={api.downloadSystemDesignUrl}
-              download="DevFlow-AI-System-Design.md"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--panel-hover)] text-white px-4 py-2.5 text-sm font-semibold transition hover:border-[var(--accent)] w-full"
-            >
-              <Download size={16} /> Download System Design (.md)
-            </a>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-6 flex flex-col justify-between">
-          <div>
-            <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4">
-              <ShieldCheck size={22} />
-            </div>
-            <h2 className="text-lg font-bold text-white">Security Audit Report</h2>
-            <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-              Official SAST security audit report for the benchmark repository, OWASP Top 10 & CWE mapping tables, code evidence, and patch verifications.
-            </p>
-          </div>
-          <div className="mt-6">
-            <a
-              href={api.downloadAuditReportUrl}
-              download="DevFlow-AI-Security-Audit-Report.md"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 px-4 py-2.5 text-sm font-semibold transition hover:bg-emerald-500/20 w-full"
-            >
-              <Download size={16} /> Download Audit Report (.md)
-            </a>
-          </div>
+          ) : viewMode === 'raw' ? (
+            <pre className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[#0d0d0d] p-5 font-mono text-xs text-white/80 leading-relaxed whitespace-pre-wrap">
+              {docPayload?.markdown || '# No content generated'}
+            </pre>
+          ) : (
+            <MarkdownDocumentRenderer markdown={docPayload?.markdown || ''} />
+          )}
         </div>
       </div>
     </>

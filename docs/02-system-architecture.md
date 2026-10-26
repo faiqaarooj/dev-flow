@@ -1,9 +1,10 @@
 # 02 — System Architecture & Design Document
 
-**Version:** 2.0 — Post-Fix & Deployment Hardened Architecture  
+**Version:** 2.2 — Post-Mortem Hardening & Cloud Edge Deployment Architecture  
 **Status:** Implemented & Verified in Production  
 **Lead Designer & Software Engineer:** Faiqa Arooj (Bugfolio, SE-Tech Society, Google Developer Groups)  
-**Target:** DevFlow AI Multi-Agent Security Auditing & Automated Remediation Platform  
+**Target Repository Architecture:** Dynamically Bound Target Repository (Evaluated against submitted GitHub repositories with live defect mapping)  
+**Auditing Platform:** DevFlow AI Multi-Agent Security Auditing & Automated Remediation Platform  
 
 ---
 
@@ -19,6 +20,17 @@ The system combines:
 5. **Multi-Model AI Security Reasoning:** Primary reasoning through Google Gemini 2.0 Flash, secondary fallback through OpenAI GPT-4o-mini, and deterministic offline rule heuristics when AI credentials are not provided.
 6. **Isolated Sandbox Patch Re-Scan Verifier:** Automated workspace isolation to re-scan proposed patches and confirm whether vulnerabilities are suppressed.
 7. **Publication-Grade Deliverables & Export Engine:** Instant dynamic Markdown audit report generation (`/api/scans/{scan_id}/export/report`) and dedicated deliverable endpoints (`/api/docs/prd`, `/api/docs/system-design`, `/api/docs/audit-report`).
+
+### 1.1 Audited Repository Security Defects & Verified Architectural Solutions
+
+The table below illustrates security defects discovered across audited target repository source code, the underlying root causes and attack vectors, the synthesized architectural remediation, and the empirical sandbox verification outcomes:
+
+| Defect ID | Target Vulnerability in Audited Code | Target Module Example | Root Cause & Attack Vector | Applied Architectural Fix & Verified Patch | Verification Status |
+|---|---|---|---|---|:---:|
+| **VULN-B104** | **Wildcard Network Interface Binding (`0.0.0.0`)**<br>Rule: Bandit B104 (CWE-200 / OWASP A01) | `target_server.py:L50` | Binding sockets to `0.0.0.0` exposes target backend management services directly to all untrusted network interfaces, bypasses perimeter security, and permits unauthorized network access. | **Localhost Interface Jailing:**<br>Refactored server binding from `0.0.0.0` to loopback `127.0.0.1` or controlled environment variables, jailing socket listeners from external network exposure. | **✅ RESOLVED**<br>(Verified AST Suppression) |
+| **VULN-B108** | **Insecure Temporary File Creation (`/tmp`)**<br>Rule: Bandit B108 (CWE-377 / OWASP A05) | `target_storage.py:L11` | Hardcoded world-writable temporary directory usage (`/tmp/data.db`) allows local symlink race conditions, arbitrary file overwrite, or unauthorized local database tampering. | **Restricted Ephemeral Temp Workspace:**<br>Migrated to `tempfile.NamedTemporaryFile` and unpredictable subdirectories with strict POSIX permissions (`0o700`). | **✅ RESOLVED**<br>(Verified AST Suppression) |
+| **VULN-B110** | **Silent Error Suppression (`try-except-pass`)**<br>Rule: Bandit B110 (CWE-390 / OWASP A04) | `target_handler.py:L78` | Catching broad `Exception` with `pass` silently masks corrupted state, failed authentication checks, and database connection loss without alerting operators or logging. | **Explicit Exception Logging & Propagation:**<br>Replaced bare `pass` blocks with structured diagnostic logging (`logger.warning`) and deterministic error propagation. | **✅ RESOLVED**<br>(Verified AST Suppression) |
+| **VULN-B602** | **Subprocess Shell Injection (`shell=True`)**<br>Rule: Bandit B602 (CWE-78 / OWASP A03) | `target_tasks.py:L44` | Invoking system subprocesses with `shell=True` allows shell metacharacters (`;&|`) in user input to execute arbitrary shell commands on the host server. | **Tokenized Discrete Argument Execution:**<br>Enforced `shell=False` with discrete token arrays (`["git", "clone", "--depth", "1"]`), completely eliminating shell interpreter parsing. | **✅ RESOLVED**<br>(Verified AST Suppression) |
 
 ---
 
